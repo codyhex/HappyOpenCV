@@ -1,0 +1,56 @@
+# import the packages
+from ShapeDetector import ShapeDetector
+import argparse
+import imutils
+import cv2
+import sys
+
+# argument parse for the image path
+ap = argparse.ArgumentParser()
+ap.add_argument("-i", "--image", required=True,
+                help="type in the input image path")
+args = vars(ap.parse_args())
+
+# loads image
+# grayscale for fun
+# blur to filter out noise
+image = cv2.imread(args["image"])
+gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+blurred = cv2.GaussianBlur(gray, (5,5), 0)          # a 5x5 kernel is applied
+# threshold turns image into binary
+# if intensity of a pixel is larger than 60,
+# replace the value with 255, which is white in OpenCV
+intensityThreshold = 60
+thresh = cv2.threshold(blurred, intensityThreshold, 255, cv2.THRESH_BINARY)[1]
+
+# now find the contours
+cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
+                        cv2.CHAIN_APPROX_SIMPLE)
+cnts = cnts[0] if imutils.is_cv2() else cnts[1]     # they change the position in OpenCV3
+
+# defines what shape an object is
+sd = ShapeDetector()
+
+print "// Escape key = Exit; Any other key = Continue //"
+
+# process on each contour
+for cnt in cnts:
+    # object center
+    M = cv2.moments(cnt)
+    cntX = int(M["m10"] / M["m00"])
+    cntY = int(M["m01"] / M["m00"])
+    # detect shape type
+    shapeName = sd.detect(cnt)
+    if shapeName is None: shapeName = ""
+    # say where and what the shape is in the console
+    # draw shapes and text
+    cv2.drawContours(image, [cnt], -1, (0,255,0), 2)
+    cv2.circle(image, (cntX,cntY), 5, (0,0,255), -1)
+    cv2.putText(image, shapeName, (cntX - 20, cntY - 20),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 2)
+    # show results
+    cv2.imshow("Find Contour Center", image)
+    keypress = cv2.waitKey(0)
+    if keypress == 1048603:
+        print "escape key pressed"
+        sys.exit()
